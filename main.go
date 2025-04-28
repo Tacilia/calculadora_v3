@@ -34,6 +34,29 @@ type HistoricoItem struct {
 	Resultado float64 `json:"resultado"`
 }
 
+// Funcao principal que inicia o Servidor
+func main() {
+	// variavel err que cria o banco de dados SQLite
+	var err error
+	db, err = sql.Open("sqlite3", "./calculadora.db") //Configura o acesso para quando vocêo cliente fizer a primeira operação.
+
+	//Se der erro, ele é guardado na variável err criado na linha 41.
+	if err != nil {
+		log.Fatal("Erro ao abrir o banco:", err)
+		//Se hoouver erro ao abrir o banco, para o programa e mostra o erro.
+	}
+	defer db.Close() //Garante que o banco de dados seja encerrado quando o programa terminar.
+
+	http.HandleFunc("/soma", somaHandler) //rota de cada api
+	http.HandleFunc("/subtracao", subtracaoHandler)
+	http.HandleFunc("/multiplicacao", multiplicacaoHandler)
+	http.HandleFunc("/divisao", divisaoHandler)
+
+	fmt.Println("Servidor rodando na porta 8080...") // funcao para mostrar que o servidor está rodando na porta 8080
+	http.ListenAndServe(":8080", nil)
+	// funcao para mostrar que o servidor está rodando na porta 8080
+}
+
 var db *sql.DB // Criar uma variável global db que vai armazenar a conexão aberta com o banco de dados."
 
 // Função que responde a um pedido (requisição) que chega no seu servidor.
@@ -100,27 +123,4 @@ func divisaoHandler(w http.ResponseWriter, r *http.Request) {
 	resultado := req.Operando1 / req.Operando2
 
 	json.NewEncoder(w).Encode(ResultadoResponse{Resultado: resultado})
-}
-
-// Funcao principal que inicia o Servidor
-func main() {
-	// variavel err que cria o banco de dados SQLite
-	var err error
-	db, err = sql.Open("sqlite3", "./calculadora.db") //Configura o acesso para quando vocêo cliente fizer a primeira operação.
-
-	//Se der erro, ele é guardado na variável err criado na linha 41.
-	if err != nil {
-		log.Fatal("Erro ao abrir o banco:", err)
-		//Se hoouver erro ao abrir o banco, para o programa e mostra o erro.
-	}
-	defer db.Close() //Garante que o banco de dados seja encerrado quando o programa terminar.
-
-	http.HandleFunc("/soma", somaHandler) //rota de cada api
-	http.HandleFunc("/subtracao", subtracaoHandler)
-	http.HandleFunc("/multiplicacao", multiplicacaoHandler)
-	http.HandleFunc("/divisao", divisaoHandler)
-
-	fmt.Println("Servidor rodando na porta 8080...") // funcao para mostrar que o servidor está rodando na porta 8080
-	http.ListenAndServe(":8080", nil)
-	// funcao para mostrar que o servidor está rodando na porta 8080
 }
