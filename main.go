@@ -41,7 +41,6 @@ func main() {
 	// variavel err que cria o banco de dados SQLite
 	var err error
 	db, err = sql.Open("sqlite3", "./calculadora.db") //Configura o acesso para quando vocêo cliente fizer a primeira operação.
-	// Se o arquivo calculadora.db ainda não existir, o driver do SQLite automaticamente cria esse arquivo na hora da primeira operação.
 
 	//Se der erro, ele é guardado na variável err criado na linha 41.
 	if err != nil {
