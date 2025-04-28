@@ -69,13 +69,12 @@ func somaHandler(w http.ResponseWriter, r *http.Request) {
 	var req OperacaoRequest //req é uma variável do tipo OperacaoRequest.
 	// Serve para ler informações que chegaram na requisição.
 	json.NewDecoder(r.Body).Decode(&req)
-	//json.NewDecoder(r.Body) --> Cria um "leitor" para os dados que chegaram na requisição HTTP.
-	//.Decode(&req) --> Lê e decodifica os dados JSONm preenche a variável 'req' usando o endereço http dela.
+	// Le dados Json que chegaram na requisicao e transforma em um objeto/struct Go.
 
 	resultado := req.Operando1 + req.Operando2 //Crie uma variável chamada resultado e guarde dentro dela o valor que chegou como resposta na requisição.
 
 	json.NewEncoder(w).Encode(ResultadoResponse{Resultado: resultado})
-	// Serve para mandar uma resposta no formato JSON para quem chamou a sua API.
+	// Envia e decodifica uma resposta para o formato JSON para quem chamou a API.
 }
 
 func subtracaoHandler(w http.ResponseWriter, r *http.Request) {
