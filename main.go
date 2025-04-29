@@ -34,6 +34,8 @@ type HistoricoItem struct {
 	Resultado float64 `json:"resultado"`
 }
 
+var db *sql.DB // Criar uma variável global db que vai armazenar a conexão aberta com o banco de dados."
+
 // Funcao principal que inicia o Servidor
 func main() {
 	// variavel err que cria o banco de dados SQLite
@@ -56,8 +58,6 @@ func main() {
 	http.ListenAndServe(":8080", nil)
 	// funcao para mostrar que o servidor está rodando na porta 8080
 }
-
-var db *sql.DB // Criar uma variável global db que vai armazenar a conexão aberta com o banco de dados."
 
 // Função que responde a um pedido (requisição) que chega no seu servidor.
 func somaHandler(w http.ResponseWriter, r *http.Request) {
