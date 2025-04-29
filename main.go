@@ -34,7 +34,7 @@ type HistoricoItem struct {
 	Resultado float64 `json:"resultado"`
 }
 
-var db *sql.DB // Criar uma variável global db que vai armazenar a conexão aberta com o banco de dados."
+var db *sql.DB // Criar uma variável global db que vai armazenar a conexão aberta com o banco de dados.
 
 // Funcao principal que inicia o Servidor
 func main() {
