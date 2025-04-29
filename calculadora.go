@@ -1,86 +1,140 @@
 package main
 
 import (
-	"database/sql" //pacote para conectar e trabalhar com bancos de dados.
-	"fmt"          //imprime menssagens no terminal
-
-	_ "github.com/mattn/go-sqlite3" // importa o driver do banco SQLite, o _ é porque só queremos registrar o driver, sem usar diretamente.
-	//Tambbém instalei a dependencia via terminal: go get github.com/mattn/go-sqlite3
-	//permite que a linguagem Go consiga se conectar e fazer consultas em um banco de dados SQLite.
+	"encoding/json"
+	"fmt"
+	"net/http"
 )
 
+// Estrutura do Tipo OperacaoRequest para receber os dados da operação
+type OperacaoRequest struct {
+	Operando1 float64 `json:"operando1"`
+	Operando2 float64 `json:"operando2"`
+	Operacao  string  `json:"operacao"`
+}
+
+// Estrutura do Tipo ResultadoResponse para enviar o resultado
+type ResultadoResponse struct {
+	Resultado float64 `json:"resultado"`
+}
+
+// E Estrutura do Tipo HistoricoItem para guardar uma operação completa com resultado no histórico.
+type HistoricoItem struct {
+	OperacaoRequest         // Ela inclui todos os campos de OperacaoRequest.
+	Resultado       float64 `json:"resultado"` // adiciona o campo Resultado
+}
+
+// Slice global para armazenar o histórico
+var historico []HistoricoItem
+
 func main() {
-	// Abre (ou cria) o banco de dados SQLite com nome "calculadora.db"
-	// A função sql.Open retorna dois valores: um ponteiro para o banco (db) e um erro (err)
-	db, err := sql.Open("sqlite3", "calculadora.db")
-	if err != nil {
-		// Se houver erro ao abrir o banco, o programa é encerrado com panic
-		panic(err)
-	}
-	// Garante que o banco de dados será fechado ao final da função main
-	defer db.Close()
+	http.HandleFunc("/soma", somaHandler)
+	http.HandleFunc("/subtracao", subtracaoHandler)
+	http.HandleFunc("/multiplicacao", multiplicacaoHandler)
+	http.HandleFunc("/divisao", divisaoHandler)
+	http.HandleFunc("/historico", historicoHandler)
 
-	// Comando SQL para criar a tabela "operacoes" caso ela ainda não exista
-	sqlTabela := `CREATE TABLE IF NOT EXISTS operacoes (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,  -- ID único, gerado automaticamente
-		operando1 REAL,                        -- Primeiro número da operação (float)
-		operando2 REAL,                        -- Segundo número da operação (float)
-		operacao TEXT,                         -- Tipo da operação: "+", "-", "*", "/"
-		resultado REAL                         -- Resultado do cálculo
-	);`
+	fmt.Println("Servidor rodando na porta 8080...")
+	http.ListenAndServe(":8080", nil)
+}
 
-	// Executa o comando SQL para criar a tabela
-	resultadoTabela, err := db.Exec(sqlTabela)
-	if err != nil {
-		// Se ocorrer erro, o programa para imediatamente
-		panic(err)
-	}
-	// Mostra no terminal que a tabela foi criada (ou já existia)
-	fmt.Println("Tabela criada ou já existia:", resultadoTabela)
+// -------------------- HANDLERS --------------------
 
-	// Insere uma operação na tabela: 2 + 3 = 5
-	// Os "?" são placeholders que evitam SQL injection
-	resultadoInsert, err := db.Exec(
-		"INSERT INTO operacoes (operando1, operando2, operacao, resultado) VALUES (?, ?, ?, ?)",
-		2, 3, "+", 5,
-	)
-	if err != nil {
-		// Se houver erro ao inserir, o programa para
-		panic(err)
-	}
+// Função que responde a um pedido (requisição) que chega no seu servidor.
+func somaHandler(w http.ResponseWriter, r *http.Request) { //Aqui dentro dos parênteses (w, r), estamos recebendo dois parâmetros.
+	// w --> É quem escreve a resposta que o servidor vai mandar de volta para quem pediu (o navegador, o Insomnia, o Postman, etc). Serve para enviar respostas (texto, JSON, erro, etc).
+	// r --> É quem contém todos os dados da requisição que o servidor recebeu (como o corpo da requisição, os parâmetros, o tipo de método GET, POST, etc).
+	//Ou seja, a funcao somaHandler é o intermediador que recebe o pedido,  r é serviro que lê o pedido que chegou ("quero somar 2 + 2"). E w é a resposta que O servidor responde ("o resultado é 4").
+	//1. O cliente manda uma requisição (tipo /soma).
+	//2. O Go vê que /soma está ligado ao somaHandler.
+	// // 3. O Go executa o somaHandler, que pega o pedido (r) e manda uma resposta (w).
 
-	// Verifica quantas linhas foram modificadas (inseridas)
-	linhasModificadas, err := resultadoInsert.RowsAffected()
-	if err != nil {
-		// Se não conseguir contar as linhas, mostra erro e sai da função
-		fmt.Println("Erro ao obter linhas modificadas:", err)
+	if r.Method != http.MethodPost {
+		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+		return
+	} // Checando se a requiscao é metodo POST, se nao for envia a menssagem metodo nao permitido.
+
+	var req OperacaoRequest //req é uma variável do tipo OperacaoRequest. Serve para ler informações que chegaram na requisição.
+	json.NewDecoder(r.Body).Decode(&req)
+	//json.NewDecoder(r.Body) --> Cria um "leitor" para os dados que chegaram na requisição HTTP.
+	//.Decode(&req) --> Lê os dados JSON e preenche a variável 'req' usando o endereço http dela.
+
+	resultado := req.Operando1 + req.Operando2 //Crie uma variável chamada resultado e guarde dentro dela o valor do primeiro número e segundo número que chegou como resposta na requisição.
+	// := significa "criar e guardar" (chamamos isso de declaração e atribuição).
+
+	adicionarAoHistorico(req, resultado) //Chama a função adicionarAoHistorico para registrar essa operação.
+
+	json.NewEncoder(w).Encode(ResultadoResponse{Resultado: resultado}) // Serve para mandar uma resposta no formato JSON para quem chamou a sua API.
+}
+
+func subtracaoHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Use o método POST", http.StatusMethodNotAllowed)
 		return
 	}
-	// Mostra o número de linhas modificadass (deve ser 1)
-	fmt.Println("Inserção feita. Linhas modificadas:", linhasModificadas)
 
-	// Consulta todos os dados da tabela "operacoes"
-	linhas, err := db.Query("SELECT id, operando1, operando2, operacao, resultado FROM operacoes")
-	if err != nil {
-		// Se der erro na consulta, o programa para
-		panic(err)
+	var req OperacaoRequest
+	json.NewDecoder(r.Body).Decode(&req)
+
+	resultado := req.Operando1 - req.Operando2
+
+	adicionarAoHistorico(req, resultado)
+
+	json.NewEncoder(w).Encode(ResultadoResponse{Resultado: resultado})
+}
+
+func multiplicacaoHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Use o método POST", http.StatusMethodNotAllowed)
+		return
 	}
-	// Garante que os resultados da consulta serão fechados no final
-	defer linhas.Close()
 
-	// Cabeçalho para os resultados
-	fmt.Println("\n📋 Resultados:")
+	var req OperacaoRequest
+	json.NewDecoder(r.Body).Decode(&req)
 
-	// Percorre cada linha retornada pelo SELECT
-	for linhas.Next() {
-		var id int          // Armazena o ID da operação
-		var a, b, r float64 // Armazena os operandos e o resultado
-		var op string       // Armazena o tipo da operação
+	resultado := req.Operando1 * req.Operando2
 
-		// Pega os valores da linha atual e coloca nas variáveis acima
-		linhas.Scan(&id, &a, &b, &op, &r)
+	adicionarAoHistorico(req, resultado)
 
-		// Imprime a operação formatada, exemplo: "1 -> 2.0 + 3.0 = 5.0"
-		fmt.Printf("%d -> %.1f %s %.1f = %.1f\n", id, a, op, b, r)
+	json.NewEncoder(w).Encode(ResultadoResponse{Resultado: resultado})
+}
+
+func divisaoHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Use o método POST", http.StatusMethodNotAllowed)
+		return
 	}
+
+	var req OperacaoRequest
+	json.NewDecoder(r.Body).Decode(&req)
+
+	if req.Operando2 == 0 {
+		http.Error(w, "Erro: nenhum número pode ser dividido por zero", http.StatusBadRequest)
+		return
+	}
+
+	resultado := req.Operando1 / req.Operando2
+
+	adicionarAoHistorico(req, resultado)
+
+	json.NewEncoder(w).Encode(ResultadoResponse{Resultado: resultado})
+}
+
+func historicoHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Use o método GET", http.StatusMethodNotAllowed)
+		return
+	}
+
+	json.NewEncoder(w).Encode(historico)
+}
+
+// -------------------- FUNÇÃO AUXILIAR --------------------
+
+func adicionarAoHistorico(req OperacaoRequest, resultado float64) {
+	item := HistoricoItem{
+		OperacaoRequest: req,
+		Resultado:       resultado,
+	}
+	historico = append(historico, item)
 }
